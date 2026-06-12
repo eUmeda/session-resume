@@ -1,0 +1,12 @@
+# secrets — never commit real keys
+api_keys.json
+creds.json
+.env
+*.local
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+# os
+.DS_Store

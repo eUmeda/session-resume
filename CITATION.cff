@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this tool, a citation or link is appreciated (not required)."
+type: software
+title: "session-resume"
+version: "1.0.0"
+authors:
+  - family-names: Umeda
+    given-names: Eisaku
+    alias: eUmeda
+url: "https://github.com/eUmeda/session-resume"
+repository-code: "https://github.com/eUmeda/session-resume"
+license: MIT
+date-released: "2026-06-11"
