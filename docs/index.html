@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ja" data-collection="session-resume">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>session-resume — Claude Code skill</title>
+<meta name="description" content="Claude Code のセッション中断→再開を「次のセッションで SESSION-RESUME.md を読んで再開して」と言うだけにする Skill。A Claude Code skill that lets you resume by just saying 'read SESSION-RESUME.md and resume'.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #FBF8F4;
+    --surface: #FFFFFF;
+    --text: #1F1B16;
+    --text-secondary: #5C5347;
+    --border: #E7DFD3;
+    --accent: #B5651D;          /* copper / ember */
+    --accent-soft: #F3E4D3;
+    --accent-text: #8A4B12;
+    --code-bg: #2B2520;
+    --code-text: #F1E9DD;
+    --shadow: 0 2px 10px rgba(60,40,20,0.07);
+    --radius: 12px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", sans-serif;
+    --mono: "Source Code Pro", "SF Mono", "Cascadia Code", Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16130F;
+      --surface: #211C16;
+      --text: #ECE3D6;
+      --text-secondary: #B5A893;
+      --border: #352D23;
+      --accent: #E0903F;
+      --accent-soft: #2E2317;
+      --accent-text: #E8A85C;
+      --code-bg: #0E0C09;
+      --code-text: #ECE3D6;
+      --shadow: 0 2px 12px rgba(0,0,0,0.4);
+    }
+  }
+
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.8;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 1.25rem; }
+
+  /* ---- top bar / language toggle ---- */
+  .topbar {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar .wrap { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+  .brand { font-weight: 700; letter-spacing: -0.01em; }
+  .brand .dot { color: var(--accent); }
+  .lang-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+  .lang-toggle button {
+    font: inherit; font-size: 0.8rem; font-weight: 600;
+    padding: 0.3rem 0.85rem; border: 0; cursor: pointer;
+    background: transparent; color: var(--text-secondary);
+  }
+  .lang-toggle button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+
+  /* ---- hero ---- */
+  .hero { padding: 3.5rem 0 2rem; text-align: center; }
+  .hero h1 { font-size: clamp(2rem, 6vw, 3rem); letter-spacing: -0.02em; font-weight: 700; }
+  .hero h1 .dot { color: var(--accent); }
+  .tagline { color: var(--text-secondary); font-size: 1.1rem; margin-top: 0.75rem; }
+
+  .keyline {
+    margin: 2rem auto 0; max-width: 620px;
+    background: var(--accent-soft); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.25rem 1.5rem;
+    font-size: 1.05rem;
+  }
+  .keyline strong { color: var(--accent-text); }
+  .keyline .say {
+    display: block; margin-top: 0.5rem; font-family: var(--mono);
+    font-size: 0.95rem; color: var(--text);
+  }
+
+  .cta { margin-top: 1.75rem; display: flex; gap: 0.6rem; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; text-decoration: none; font-weight: 600; font-size: 0.92rem;
+    padding: 0.6rem 1.2rem; border-radius: 999px; border: 1px solid var(--accent);
+  }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.ghost { background: transparent; color: var(--accent-text); }
+
+  /* ---- sections ---- */
+  section { padding: 2rem 0; border-top: 1px solid var(--border); }
+  section h2 { font-size: 1.35rem; letter-spacing: -0.01em; margin-bottom: 0.9rem; }
+  section h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; margin-right: 0.4rem; }
+  p { margin-bottom: 0.75rem; }
+  ul { margin: 0.25rem 0 0.5rem 1.25rem; }
+  li { margin-bottom: 0.5rem; }
+  .muted { color: var(--text-secondary); }
+
+  code {
+    font-family: var(--mono); font-size: 0.88em;
+    background: var(--accent-soft); padding: 0.1em 0.4em; border-radius: 5px;
+  }
+  pre {
+    background: var(--code-bg); color: var(--code-text);
+    border-radius: var(--radius); padding: 1rem 1.1rem; overflow-x: auto;
+    margin: 0.6rem 0; font-size: 0.86rem; line-height: 1.65;
+  }
+  pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+
+  .steps { counter-reset: step; list-style: none; margin-left: 0; }
+  .steps li { position: relative; padding-left: 2.4rem; margin-bottom: 1rem; }
+  .steps li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 0; top: 0.1rem;
+    width: 1.7rem; height: 1.7rem; border-radius: 50%;
+    background: var(--accent); color: #fff; font-weight: 700; font-size: 0.85rem;
+    display: grid; place-items: center;
+  }
+
+  .roadmap-note {
+    font-size: 0.85rem; color: var(--text-secondary);
+    border-left: 3px solid var(--accent); padding: 0.2rem 0 0.2rem 0.9rem; margin-bottom: 0.8rem;
+  }
+
+  footer { padding: 2.5rem 0 3.5rem; border-top: 1px solid var(--border); color: var(--text-secondary); font-size: 0.85rem; text-align: center; }
+  footer a { color: var(--accent-text); }
+
+  /* language visibility — hide only the inactive set, so the visible set keeps its natural display.
+     No JS / default: Japanese shows, English hidden. */
+  html:not([data-lang-mode="en"]) [data-lang="en"] { display: none; }
+  html[data-lang-mode="en"] [data-lang="ja"] { display: none; }
+
+  @media (max-width: 600px) {
+    .hero { padding: 2.5rem 0 1.5rem; }
+    .keyline { font-size: 1rem; padding: 1rem 1.1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <span class="brand">session<span class="dot">·</span>resume</span>
+    <div class="lang-toggle" role="group" aria-label="language">
+      <button type="button" data-set-lang="ja" aria-pressed="true">日本語</button>
+      <button type="button" data-set-lang="en" aria-pressed="false">English</button>
+    </div>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>session<span class="dot">·</span>resume</h1>
+
+    <p class="tagline" data-lang="ja">Claude Code のセッションを、止めたところから滑らかに再開する Skill。</p>
+    <p class="tagline" data-lang="en">A Claude Code skill to resume your session, smoothly, right where you left off.</p>
+
+    <div class="keyline" data-lang="ja">
+      <span>このスキルは、次のセッションで <strong>「<code>SESSION-RESUME.md</code> を読んで再開して」と言うだけ</strong>で済むように作りました。そう使ってください。</span>
+      <span class="say">&gt; SESSION-RESUME.md を読んで再開して</span>
+    </div>
+    <div class="keyline" data-lang="en">
+      <span>This skill exists so that in your next session you can <strong>just say "read <code>SESSION-RESUME.md</code> and resume."</strong> Use it that way.</span>
+      <span class="say">&gt; read SESSION-RESUME.md and resume</span>
+    </div>
+
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/eUmeda/session-resume">GitHub repo</a>
+      <a class="btn ghost" href="#install" data-lang="ja">インストール</a>
+      <a class="btn ghost" href="#install" data-lang="en">Install</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- WHAT -->
+  <section id="what">
+    <div data-lang="ja">
+      <h2>何をするもの?</h2>
+      <p>セッションの末尾で起動すると、作業コンテキスト・完了/未完了タスク・ファイル構成・設計判断・次の一手を、
+        LLM が読みやすい構造化プロンプトとして対象ディレクトリの <code>SESSION-RESUME.md</code> に書き出します。</p>
+      <p class="muted">次のセッションはそれを読むだけで、文脈の再説明なしに続きから入れます。
+        未完了タスクは <code>[actionable] / [deferred] / [blocked]</code> に分類され、次にやるべき一手を理由付きで提案します。</p>
+    </div>
+    <div data-lang="en">
+      <h2>What does it do?</h2>
+      <p>Run it at the end of a session and it writes your work context, done / not-done tasks, file layout,
+        design decisions, and the next move into <code>SESSION-RESUME.md</code> in the target directory — as a
+        structured prompt an LLM reads easily.</p>
+      <p class="muted">Your next session just reads that file and continues, with no re-explaining. Open tasks are
+        classified into <code>[actionable] / [deferred] / [blocked]</code>, with a reasoned recommendation for what to do next.</p>
+    </div>
+  </section>
+
+  <!-- INSTALL -->
+  <section id="install">
+    <div data-lang="ja">
+      <h2><span class="num">1</span>インストール</h2>
+      <pre><code>git clone https://github.com/eUmeda/session-resume.git
+mkdir -p ~/.claude/skills
+ln -s "$PWD/session-resume" ~/.claude/skills/session-resume</code></pre>
+      <p class="muted">シンボリックリンクが使えない環境（developer mode 無効の Windows 等）は、
+        <code>cp -R session-resume ~/.claude/skills/session-resume</code> でディレクトリごとコピーでも動きます。</p>
+    </div>
+    <div data-lang="en">
+      <h2><span class="num">1</span>Install</h2>
+      <pre><code>git clone https://github.com/eUmeda/session-resume.git
+mkdir -p ~/.claude/skills
+ln -s "$PWD/session-resume" ~/.claude/skills/session-resume</code></pre>
+      <p class="muted">No symlinks (e.g. Windows without developer mode)? Copy the directory instead:
+        <code>cp -R session-resume ~/.claude/skills/session-resume</code>.</p>
+    </div>
+  </section>
+
+  <!-- USE -->
+  <section id="use">
+    <div data-lang="ja">
+      <h2><span class="num">2</span>使い方は3ステップ</h2>
+      <ul class="steps">
+        <li>作業を終える/中断する前に、Claude Code で <code>/session-resume</code> と打つ
+          （別プロジェクトを指すなら <code>/session-resume --dir /path/to/project</code>）。</li>
+        <li><code>SESSION-RESUME.md</code> が対象ディレクトリに書き出される（チャットにも要点サマリーが出る）。</li>
+        <li>次のセッションで <strong>「<code>SESSION-RESUME.md</code> を読んで再開して」</strong>と言う。それだけ。</li>
+      </ul>
+      <p class="muted"><code>--dir</code> で対象を明示するので、プロジェクトを移動/改名した直後でも正しく動きます（cwd 非依存）。
+        Claude が勝手に起動することはなく、あなたが明示的に頼んだときだけ動きます。</p>
+    </div>
+    <div data-lang="en">
+      <h2><span class="num">2</span>Three steps</h2>
+      <ul class="steps">
+        <li>Before you wrap up or pause, type <code>/session-resume</code> in Claude Code
+          (point it elsewhere with <code>/session-resume --dir /path/to/project</code>).</li>
+        <li><code>SESSION-RESUME.md</code> is written into the target directory (with a short summary in chat).</li>
+        <li>Next session, <strong>say "read <code>SESSION-RESUME.md</code> and resume."</strong> That's it.</li>
+      </ul>
+      <p class="muted"><code>--dir</code> makes the target explicit, so it works even right after you move/rename a
+        project (no cwd dependency). Claude never auto-runs it — only when you explicitly ask.</p>
+    </div>
+  </section>
+
+  <!-- USE CASES -->
+  <section id="cases">
+    <div data-lang="ja">
+      <h2><span class="num">3</span>実際の使い方</h2>
+      <p class="muted">作者が 2026 年春から日々の Claude Code セッションで使ってきた、定着したパターンです。</p>
+      <ul>
+        <li><strong>夜に閉じる → 翌朝そのまま再開（最頻）</strong> — 末尾で <code>/session-resume</code>、翌朝は
+          「読んで再開して」だけ。別セッションが前夜の状態を即復元して継続できる。</li>
+        <li><strong>長時間ジョブ/バッチの結果待ちで中断</strong> — 投下して結果待ちの間に、次に見る output と次ステップを確定。</li>
+        <li><strong>複数プロジェクトを並行</strong> — 末尾に各 dir で <code>--dir</code> 指定して実行し、続きを独立に保存。</li>
+        <li><strong>複数日・複数再起動を跨ぐ長丁場</strong> — ストレージ整理や大規模 migration で随時更新して途切れず継続。</li>
+        <li><strong>方針転換・意思決定の記録</strong> — 巻き戻したときの到達点と判断理由を、次の自分と Claude へ引き継ぐ。</li>
+        <li><strong>コンテキスト圧縮対策 / token 節約</strong> — 「検証は今セッション、重い解釈は次セッション」と分担を宣言。</li>
+      </ul>
+    </div>
+    <div data-lang="en">
+      <h2><span class="num">3</span>Real-world use cases</h2>
+      <p class="muted">Patterns the author has actually used in daily Claude Code sessions since spring 2026.</p>
+      <ul>
+        <li><strong>Close at night → resume next morning (most common)</strong> — <code>/session-resume</code> at the
+          end; next morning just "read it and resume." A fresh session restores last night's state and continues.</li>
+        <li><strong>Pause while a long job / batch runs</strong> — lock in which output to check next and the next step.</li>
+        <li><strong>Juggling multiple projects</strong> — run per <code>--dir</code> at session end, saving each thread independently.</li>
+        <li><strong>Multi-day work across restarts</strong> — keep it updated through storage cleanups / large migrations.</li>
+        <li><strong>Recording pivots and decisions</strong> — capture where you ended up and <em>why</em>, for your future self and Claude.</li>
+        <li><strong>Context-compaction insurance / token savings</strong> — split "verify now, interpret next session."</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ROADMAP -->
+  <section id="roadmap">
+    <div data-lang="ja">
+      <h2>Roadmap（将来構想・未実装）</h2>
+      <p class="roadmap-note">現状は手動運用で完結します。以下はアイデア段階で、まだ実装されていません。</p>
+      <ul>
+        <li><strong>コンテキスト圧迫時の半自動代行</strong> — 任意で Gemini / Groq などの API キーを設定しておくと、
+          Claude Code 本体のコンテキストが圧迫された状況で terminal を全選択して貼り付け → 外部 LLM が再開プロンプト生成を半自動で代行する案。
+          <span class="muted">opt-in（キー未設定なら従来どおり手動）で検討中。</span></li>
+      </ul>
+    </div>
+    <div data-lang="en">
+      <h2>Roadmap (ideas / not yet implemented)</h2>
+      <p class="roadmap-note">Today it works fully via manual operation. The items below are ideas only — not implemented yet.</p>
+      <ul>
+        <li><strong>Semi-automatic handoff under context pressure</strong> — optionally set an API key (e.g. Gemini / Groq);
+          when Claude Code's own context is tight, select-all in the terminal and paste it, and an external LLM drafts the resume prompt.
+          <span class="muted">Considered as opt-in (stays fully manual with no key).</span></li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer class="wrap">
+  <p data-lang="ja">MIT License · <a href="https://github.com/eUmeda/session-resume">github.com/eUmeda/session-resume</a></p>
+  <p data-lang="en">MIT License · <a href="https://github.com/eUmeda/session-resume">github.com/eUmeda/session-resume</a></p>
+  <p style="margin-top:0.6rem">🤖 Built &amp; maintained with <a href="https://claude.com/claude-code">Claude Code</a></p>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var STORE_KEY = "session-resume-lang";
+
+  function read(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+  function write(key, val) { try { localStorage.setItem(key, val); } catch (e) { /* private mode */ } }
+
+  function apply(lang) {
+    // Hide only the inactive language via a root attribute (visible set keeps its natural display).
+    document.documentElement.setAttribute("data-lang-mode", lang);
+    var buttons = document.querySelectorAll("[data-set-lang]");
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute("aria-pressed", buttons[i].getAttribute("data-set-lang") === lang ? "true" : "false");
+    }
+    document.documentElement.setAttribute("lang", lang);
+  }
+
+  function pickInitial() {
+    var saved = read(STORE_KEY);
+    if (saved === "ja" || saved === "en") { return saved; }
+    var nav = (navigator.language || "ja").toLowerCase();
+    return nav.indexOf("ja") === 0 ? "ja" : "en";
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    apply(pickInitial());
+    var buttons = document.querySelectorAll("[data-set-lang]");
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].addEventListener("click", function () {
+        var lang = this.getAttribute("data-set-lang");
+        write(STORE_KEY, lang);
+        apply(lang);
+      });
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
